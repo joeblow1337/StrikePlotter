@@ -89,7 +89,7 @@ def calculate_regression(timestamps, values):
         return None, None, None
     target_x = (100 - intercept) / slope
     target_time = datetime.datetime.fromtimestamp(target_x)
-    delta_slope = slope * 60  # Convert to % per minute
+    delta_slope = slope * 60
     return target_time, (target_time - datetime.datetime.now()), delta_slope
 
 def live_plot(filename):
@@ -108,15 +108,46 @@ def live_plot(filename):
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         fetch_countdown = max(0, int(next_fetch_time - time.time()))
         target_time, countdown, delta_slope = calculate_regression(timestamps, values)
+
+        time_intervals = {
+            "1 Minute": 1,
+            "1 Hour": 60,
+            "1 Day": 60 * 24,
+            "1 Week": 60 * 24 * 7
+        }
+        
+        slopes = {}
+        slope_texts = []
+        for label, interval in time_intervals.items():
+            delta_slope = calculate_regression(timestamps, values)[2] * interval
+            slopes[label] = delta_slope
+            if delta_slope:
+                if label == "1 Minute":
+                    unit = "minute"
+                elif label == "1 Hour":
+                    unit = "hour"
+                elif label == "1 Day":
+                    unit = "day"
+                elif label == "1 Week":
+                    unit = "week"
+                
+                slope_texts.append(f"{label}Δ: {delta_slope:.3f}%/{unit}")
+            else:
+                slope_texts.append(f"{label}Δ: N/A")
+
         if values:
             current_progress = values[-1]
         else:
             current_progress = "N/A"
-        title = f"Next fetch in {fetch_countdown} seconds\nCurrent Progress: {current_progress}%\nSlope: {delta_slope:.3f}%/min" if delta_slope else "Slope: N/A"
+        
+        title = f"Next fetch in {fetch_countdown} seconds\nCurrent Progress: {current_progress}%\n"
+        title += "\n".join(slope_texts)
         if target_time:
             title += f"\nProjected 100% at {target_time}\nTime remaining: {countdown}"
+
         ax.set_title(title)
         plt.xticks(rotation=45)
+        plt.tight_layout()
         plt.pause(1)
 
 def start_logging():
